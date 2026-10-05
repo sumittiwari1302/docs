@@ -1,0 +1,63 @@
+---
+import { $fetchApiCached, $fetchApiCachedOptional } from "~/utils/fetch";
+import { resolveBlueprintRenders, fetchToolBlueprintCount } from "~/utils/blueprints/orchestrationBlueprints";
+
+interface OrchestrationItem {
+  blueprintId?: string;
+  name: string;
+  description: string;
+  tool?: string;
+  [key: string]: unknown;
+}
+
+interface Props {
+  params: { slug: string };
+}
+
+const { slug } = Astro.props;
+
+const LOGO_MAP: Record<string, string> = {
+  terraform: "terraform",
+  ansible: "ansible",
+  kubernetes: "kubernetes",
+  gcp: "gcp",
+  aws: "aws",
+  azure: "azure",
+};
+
+const toolName = slug;
+const logo = LOGO_MAP[toolName] ?? toolName;
+
+const itemsResponse = await $fetchApiCached<OrchestrationItem[]>(`/orchestration/${toolName}`);
+const items = itemsResponse ?? [];
+
+const itemsWithRenders = await resolveBlueprintRenders(items);
+const toolBlueprintCount = await fetchToolBlueprintCount(toolName);
+---
+
+<html lang="en">
+  <head>
+    <title>{toolName} Orchestration | Kestra</title>
+  </head>
+  <body>
+    <h1>{toolName} Orchestration</h1>
+    <p>Browse all {toolBlueprintCount} blueprints</p>
+    
+    <ul>
+      {itemsWithRenders.map((item) => (
+        <li>
+          <h2>{item.name}</h2>
+          <p>{item.description}</p>
+          {item.render ? (
+            <div>
+              <pre>{item.render.source}</pre>
+              {item.render.graph && <div>Graph: {JSON.stringify(item.render.graph)}</div>}
+            </div>
+          ) : (
+            <p>Code pending...</p>
+          )}
+        </li>
+      ))}
+    </ul>
+  </body>
+</html>
